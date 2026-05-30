@@ -356,6 +356,9 @@ pub const Lexer = struct {
             const c = self.src[self.pos];
             if (c == '\\') {
                 self.pos += 2;
+                // A trailing backslash at EOF would overshoot len; clamp so the
+                // final `src[start..pos]` slice stays in bounds.
+                if (self.pos > len) self.pos = @intCast(len);
                 continue;
             }
             if (c == '\n') {

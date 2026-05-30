@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Lexer: fix out-of-bounds slice on a trailing backslash in a template
+  middle/tail (crash / DoS).** A template `${…}`-segment ending with a backslash
+  as the final source byte (e.g. `` `${1}\ ``) made `pos += 2` overshoot the
+  source length, so the closing `src[start..pos]` slice panicked with an
+  out-of-bounds index. `pos` is now clamped to the source length. Fixed in both
+  the compiler and linter lexer copies. (Reachable; not mitigated by the 64 MB
+  file cap.)
+- **Module interop: cap resolution reads at 64 MB.** `readTextFile` (used to read
+  `package.json` and candidate modules during ESM/CJS interop resolution) read
+  with no size limit; a hostile or huge file could exhaust memory. It now uses
+  the project's 64 MB limit and skips oversized files gracefully.
 - **Lexer: prevent stack overflow / DoS on long comment runs.** `Lexer.nextInner`
   tail-recursed once per consecutive comment, so an input with a large run of
   `//` or `/* */` comments exhausted the native stack and crashed the process.
@@ -32,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **Reserve output buffers up front.** The compiler codegen buffer and the
+  linter's line-based fallback formatter buffer now `ensureTotalCapacity(~1.5×
+  source.len)` before emitting, avoiding repeated reallocations as output grows
+  (matching the AST formatter, which already reserved). Output is unchanged.
 - **`common.sourceRange` is now a single forward scan.** It previously called
   `sourcePosition` twice, rescanning the `[0..start]` prefix; it now walks to
   `start`, captures it, and continues to `end`. Output is unchanged.
@@ -97,3 +112,14 @@ unfixed code** before the fix and pass after:
   tests remain skipped.
 - New regression coverage lives under `tests/unit/` (always executed) in addition
   to the now-running package suites.
+- **Security audit notes.** An integer-overflow sweep of the lexers, parsers,
+  codegen and formatter found no reachable overflow beyond the template slice
+  fixed above — byte offsets are bounded by the 64 MB file cap and `u32`
+  positions, and JSON/config `i64` values are `@max(_, 0)`-clamped before
+  widening casts. Invalid UTF-8 input is memory-safe (the lexer advances
+  byte-at-a-time and never slices out of bounds); strict UTF-8 *validation* is
+  intentionally deferred since rejecting input would be a behavior change and the
+  current handling is already safe. Relative imports legitimately use `../`, and
+  resolution only `stat`s/reads metadata files (now size-capped) rather than
+  echoing arbitrary paths, so no path-traversal read/write sink was introduced or
+  found.

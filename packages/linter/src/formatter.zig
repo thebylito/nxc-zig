@@ -125,6 +125,8 @@ pub fn format(source: []const u8, options: common.FormatterOptions, alloc: std.m
 
         var out = std.ArrayListUnmanaged(u8).empty;
         errdefer out.deinit(alloc);
+        // Formatted output is roughly the size of the input; reserve up front.
+        try out.ensureTotalCapacity(alloc, normalized_source.len + normalized_source.len / 2);
 
         var lines = std.mem.splitScalar(u8, normalized_source, '\n');
         var line_idx: usize = 0;

@@ -440,6 +440,9 @@ pub fn compile(
         .remove_comments = cfg.remove_comments,
         .comments = p.comments.items,
     });
+    // Emitted JS is roughly the size of the source; reserve up front to avoid
+    // repeated reallocations as the output buffer grows.
+    try cg.buf.ensureTotalCapacity(a, source.len + source.len / 2);
     try cg.gen(program_id);
     const code = try cg.finish();
     const map = try cg.finishSourceMap();
