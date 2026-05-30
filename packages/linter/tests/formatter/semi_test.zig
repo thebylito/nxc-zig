@@ -115,9 +115,12 @@ test "does not add semicolon for normal empty statement" {
 }
 
 test "leading semicolon not added when empty_stmt not followed by ASI-sensitive expr" {
-    // KNOWN GAP: a lone leading empty statement is dropped but leaves a blank
-    // first line (`;\nconst x = 1;` -> `\nconst x = 1;`). See CHANGELOG.
-    return error.SkipZigTest;
+    const src =
+        \\;
+        \\const x = 1;
+    ;
+    const expected = "const x = 1;";
+    try h.testFormat(src, .{}, expected);
 }
 
 test "leading semicolon preserved with semi: false option" {
@@ -135,11 +138,18 @@ test "leading semicolon preserved for IIFE with semi: false option" {
     try h.testFormat(src, .{ .semi = false }, src);
 }
 
-test "multiline safety preserves leading semicolon after var decl" {
-    // KNOWN GAP: defensive-semicolon placement across a var decl boundary differs
-    // from the original expectation (now emits `const foo = bar;` then the call).
-    // See CHANGELOG.
-    return error.SkipZigTest;
+test "redundant leading semicolon dropped after terminated var decl" {
+    const src =
+        \\const foo = bar
+        \\;(async () => {})()
+    ;
+    // The var decl is terminated with its own `;`, so the defensive leading `;`
+    // is redundant and dropped; the IIFE keeps its wrapping parens.
+    const expected =
+        \\const foo = bar;
+        \\(async () => {})();
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "multiline safety with semi false" {
@@ -152,14 +162,26 @@ test "multiline safety with semi false" {
 }
 
 test "multiline safety with array expression" {
-    // KNOWN GAP: emits a semicolon after the preceding statement and keeps the
-    // defensive `;` (`const x = y;\n;[1, 2, 3].forEach(() => {});`) instead of
-    // leaving the source untouched. See CHANGELOG.
-    return error.SkipZigTest;
+    const src =
+        \\const x = y
+        \\;[1, 2, 3].forEach(() => {})
+    ;
+    // Preceding statement is terminated, so the redundant defensive `;` is dropped.
+    const expected =
+        \\const x = y;
+        \\[1, 2, 3].forEach(() => {});
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "multiline safety with template literal" {
-    // KNOWN GAP: same defensive-semicolon behavior change as the array case
-    // above. See CHANGELOG.
-    return error.SkipZigTest;
+    const src =
+        \\const x = y
+        \\;`template`
+    ;
+    const expected =
+        \\const x = y;
+        \\`template`;
+    ;
+    try h.testFormat(src, .{}, expected);
 }

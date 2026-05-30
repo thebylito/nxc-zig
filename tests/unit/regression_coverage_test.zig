@@ -56,6 +56,26 @@ test "linter lexer handles long runs of comments without stack overflow" {
     try std.testing.expectEqual(linter.lexer.TokenKind.ident, l.next().kind);
 }
 
+// ── linter formatter: empty-statement / defensive-semicolon ──
+// A bare empty statement must be dropped without leaving a blank line, and a
+// defensive leading `;` must be dropped once the preceding statement is
+// terminated — while a genuine leading guard is preserved.
+test "formatter drops bare and redundant empty statements" {
+    const alloc = std.testing.allocator;
+    const Case = struct { src: []const u8, want: []const u8 };
+    const cases = [_]Case{
+        .{ .src = ";\nconst x = 1;", .want = "const x = 1;" },
+        .{ .src = "const x = y\n;[1, 2, 3].forEach(() => {})", .want = "const x = y;\n[1, 2, 3].forEach(() => {});" },
+        // a genuine module-leading guard is still preserved
+        .{ .src = ";[1, 2, 3].forEach(() => {})", .want = ";[1, 2, 3].forEach(() => {});" },
+    };
+    for (cases) |c| {
+        const out = try linter.format(c.src, .{}, alloc);
+        defer alloc.free(out);
+        try std.testing.expectEqualStrings(c.want, out);
+    }
+}
+
 // ── linter parser: depth-counter leak ────────────────
 // parseBindingPattern + parseTsType each call checkDepth(); without a matching
 // decrement the counter grows per declaration and trips a false depth error.

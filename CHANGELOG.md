@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Formatter: empty-statement and defensive-semicolon handling.** A bare empty
+  statement (`;`) is now dropped instead of leaving a blank line
+  (`;\nconst x = 1;` → `const x = 1;`), and a defensive leading `;` is dropped
+  once the preceding statement is terminated (`const x = y\n;[1].forEach(...)` →
+  `const x = y;\n[1].forEach(...);`). A genuine module-leading guard is still
+  preserved (`;(async () => {})()` → `;(async () => {})();`).
 - **`incremental.loadCachedOutput` memory leaks.** Added `errdefer` so `code`,
   `map`, and `declarations` are freed when a later allocation fails.
 - Removed dead `appendSuffix` helper in `packages/compiler/src/resolver/paths.zig`.
@@ -81,21 +87,13 @@ unfixed code** before the fix and pass after:
   as its own test artifact, and the formatter suite gets a proper `harness`
   module import. This raises the executed test count from ~608 to ~874 (+266).
 
-### Known issues
-
-Surfaced by enabling the formatter suite (`packages/linter/tests/formatter/semi_test.zig`,
-now skipped via `error.SkipZigTest` pending triage). The async function IIFE
-issue found here was fixed (see _Security_ above); the remaining items are:
-
-- **Leading empty statement leaves a blank line.** `;\nconst x = 1;` formats to
-  `\nconst x = 1;` (leading blank line) instead of `const x = 1;`.
-- **Defensive-semicolon placement across statement boundaries changed.** The
-  three "multiline safety" cases now emit a semicolon on the preceding statement
-  and keep the defensive `;`, rather than leaving the source untouched.
-
 ### Notes
 
-- New regression coverage lives under `tests/unit/` (always executed). Stale
-  expectations in `semi_test.zig` for leading-semicolon handling were updated to
-  match the current, correct formatter output (trailing `;` with `semi: true`),
-  cross-checked against the passing `tests/unit/formatter_leading_semi_test.zig`.
+- Enabling the formatter suite surfaced 11 pre-existing `semi_test.zig` failures.
+  All are now resolved: 6 were stale expectations (the formatter correctly adds a
+  trailing `;` with `semi: true`, cross-checked against the passing
+  `tests/unit/formatter_leading_semi_test.zig`); the rest were the real bugs fixed
+  above (async function IIFE, empty-statement / defensive-semicolon handling). No
+  tests remain skipped.
+- New regression coverage lives under `tests/unit/` (always executed) in addition
+  to the now-running package suites.

@@ -128,6 +128,17 @@ const Formatter = struct {
         self.pending_newlines += 1;
     }
 
+    /// Last non-whitespace byte already written to the buffer, or 0 if none.
+    /// Used to decide whether a defensive leading semicolon is still needed.
+    fn lastWrittenByte(self: *const Formatter) u8 {
+        var i = self.buf.items.len;
+        while (i > 0) : (i -= 1) {
+            const c = self.buf.items[i - 1];
+            if (c != ' ' and c != '\t' and c != '\n' and c != '\r') return c;
+        }
+        return 0;
+    }
+
     fn indent(self: *Formatter) void {
         self.indent_level += 1;
     }
@@ -561,22 +572,35 @@ const Formatter = struct {
 
     fn genProgram(self: *Formatter, p: ast.Program) !void {
         var prev_stmt_start: u32 = 0;
+        var emitted = false;
         for (p.body, 0..) |stmt, i| {
             const stmt_node = self.arena.get(stmt);
             const stmt_start = stmt_node.span().start;
-            if (i > 0) {
-                try self.separateStatements(prev_stmt_start, stmt_start);
+
+            if (stmt_node.* == .empty_stmt) {
+                // Keep an empty statement only as an ASI guard: when the next
+                // statement starts with an ASI-sensitive token and the preceding
+                // output does not already terminate with a semicolon. Otherwise
+                // drop it so a bare `;` never leaves a blank line or a redundant
+                // leading semicolon.
+                const guard = i + 1 < p.body.len and
+                    self.needsLeadingSemicolon(self.arena.get(p.body[i + 1])) and
+                    self.lastWrittenByte() != ';';
+                if (!guard) continue;
+                if (emitted) try self.separateStatements(prev_stmt_start, stmt_start);
+                self.needs_leading_semicolon = true;
+                self.skip_next_newline = true;
+                try self.gen(stmt);
+                self.needs_leading_semicolon = false;
+                prev_stmt_start = stmt_start;
+                emitted = true;
+                continue;
             }
-            if (stmt_node.* == .empty_stmt and i + 1 < p.body.len) {
-                const next_node = self.arena.get(p.body[i + 1]);
-                self.needs_leading_semicolon = self.needsLeadingSemicolon(next_node);
-                if (self.needs_leading_semicolon) {
-                    self.skip_next_newline = true;
-                }
-            }
+
+            if (emitted) try self.separateStatements(prev_stmt_start, stmt_start);
             try self.gen(stmt);
-            self.needs_leading_semicolon = false;
             prev_stmt_start = stmt_start;
+            emitted = true;
         }
         try self.emitRemainingComments();
     }
