@@ -549,43 +549,52 @@ pub const Lexer = struct {
     }
 
     fn nextInner(self: *Lexer) Token {
-        self.skipWhitespace();
+        // Loop over leading comments iteratively; recursing here would overflow
+        // the stack on inputs with long runs of consecutive comments.
+        while (true) {
+            self.skipWhitespace();
 
-        if (self.pos >= self.src.len) {
-            return .{
-                .kind = .eof,
-                .span = .{ .start = self.pos, .end = self.pos, .line = self.line, .col = self.col() },
-                .raw = "",
-            };
-        }
+            if (self.pos >= self.src.len) {
+                return .{
+                    .kind = .eof,
+                    .span = .{ .start = self.pos, .end = self.pos, .line = self.line, .col = self.col() },
+                    .raw = "",
+                };
+            }
 
-        const c0 = self.src[self.pos];
+            const c0 = self.src[self.pos];
 
-        if (c0 == '/') {
-            if (self.pos + 1 < self.src.len) {
-                const c1 = self.src[self.pos + 1];
-                if (c1 == '/') {
-                    const start = self.pos;
-                    const sl = self.line;
-                    const sc = self.col();
-                    self.skipLineComment();
-                    self.pushPendingComment(start, sl, sc);
-                    return self.nextInner();
-                }
-                if (c1 == '*') {
-                    const start = self.pos;
-                    const sl = self.line;
-                    const sc = self.col();
-                    const closed = self.skipBlockComment();
-                    if (!closed) {
-                        self.pos = start + 2;
-                        return .{ .kind = .invalid, .span = self.spanFrom(start, sl, sc), .raw = self.src[start..self.pos] };
+            if (c0 == '/') {
+                if (self.pos + 1 < self.src.len) {
+                    const c1 = self.src[self.pos + 1];
+                    if (c1 == '/') {
+                        const start = self.pos;
+                        const sl = self.line;
+                        const sc = self.col();
+                        self.skipLineComment();
+                        self.pushPendingComment(start, sl, sc);
+                        continue;
                     }
-                    self.pushPendingComment(start, sl, sc);
-                    return self.nextInner();
+                    if (c1 == '*') {
+                        const start = self.pos;
+                        const sl = self.line;
+                        const sc = self.col();
+                        const closed = self.skipBlockComment();
+                        if (!closed) {
+                            self.pos = start + 2;
+                            return .{ .kind = .invalid, .span = self.spanFrom(start, sl, sc), .raw = self.src[start..self.pos] };
+                        }
+                        self.pushPendingComment(start, sl, sc);
+                        continue;
+                    }
                 }
             }
+
+            return self.nextInnerToken(c0);
         }
+    }
+
+    fn nextInnerToken(self: *Lexer, c0: u8) Token {
 
         const start = self.pos;
         const sl = self.line;

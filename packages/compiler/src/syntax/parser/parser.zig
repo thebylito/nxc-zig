@@ -2731,6 +2731,7 @@ pub const Parser = struct {
 
     fn parseBindingPattern(self: *Parser) anyerror!NodeId {
         try self.checkDepth();
+        defer self.parse_depth -= 1;
         return switch (self.cur().kind) {
             .lbrace => self.parseObjectPat(),
             .lbracket => self.parseArrayPat(),
@@ -2821,6 +2822,7 @@ pub const Parser = struct {
 
     fn parseTsType(self: *Parser) anyerror!NodeId {
         try self.checkDepth();
+        defer self.parse_depth -= 1;
         const base = try self.parseTsUnionType();
         // type predicate: `x is T` or `this is T` (return type annotation)
         if (self.check(.kw_is)) {
