@@ -51,6 +51,14 @@ pub fn build(b: *std.Build) void {
     package_linter_tests_mod.addImport("linter", linter.module);
     package_linter_tests_mod.addImport("common", common.module);
 
+    const formatter_harness_mod = b.createModule(.{
+        .root_source_file = b.path("packages/linter/tests/formatter/harness.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    formatter_harness_mod.addImport("linter", linter.module);
+    formatter_harness_mod.addImport("common", common.module);
+
     const package_formatter_tests_mod = b.createModule(.{
         .root_source_file = b.path("packages/linter/tests/formatter/formatter.zig"),
         .target = target,
@@ -58,6 +66,7 @@ pub fn build(b: *std.Build) void {
     });
     package_formatter_tests_mod.addImport("linter", linter.module);
     package_formatter_tests_mod.addImport("common", common.module);
+    package_formatter_tests_mod.addImport("harness", formatter_harness_mod);
 
     const package_cli_tests_mod = b.createModule(.{
         .root_source_file = b.path("packages/cli/tests/cli_test.zig"),
@@ -163,13 +172,6 @@ pub fn build(b: *std.Build) void {
     cli_tests_mod.addImport("compiler", compiler.modules.compiler);
     unit_tests.root_module.addImport("cli_tests", cli_tests_mod);
 
-    // Package test modules imported by test_root.zig
-    unit_tests.root_module.addImport("package_compiler_tests", package_compiler_tests_mod);
-    unit_tests.root_module.addImport("package_linter_tests", package_linter_tests_mod);
-    unit_tests.root_module.addImport("package_formatter_tests", package_formatter_tests_mod);
-    unit_tests.root_module.addImport("package_cli_tests", package_cli_tests_mod);
-    unit_tests.root_module.addImport("package_common_tests", package_common_tests_mod);
-
     // ── Test step ────────────────────────────────────
 
     const test_step = b.step("test", "Run all tests");
@@ -178,6 +180,14 @@ pub fn build(b: *std.Build) void {
     // Inline test blocks from source files (not included in test_root.zig)
     test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = compiler.modules.lexer })).step);
     test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = cli_main_mod })).step);
+
+    // Package test suites run as their own artifacts; test blocks in a separate
+    // module are only registered with the runner when that module is the test root.
+    test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = package_compiler_tests_mod })).step);
+    test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = package_linter_tests_mod })).step);
+    test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = package_formatter_tests_mod })).step);
+    test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = package_cli_tests_mod })).step);
+    test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = package_common_tests_mod })).step);
 
     // ── Bench step ───────────────────────────────────
 

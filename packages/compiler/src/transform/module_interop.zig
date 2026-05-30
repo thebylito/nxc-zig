@@ -721,8 +721,10 @@ fn pathKind(path: []const u8, io: std.Io) !PathKind {
 }
 
 fn readTextFile(path: []const u8, io: std.Io, alloc: std.mem.Allocator) !?[]u8 {
-    return std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited) catch |err| switch (err) {
-        error.FileNotFound, error.IsDir => null,
+    // Cap resolution reads (package.json, candidate modules) at the project's
+    // 64 MB limit; an unbounded read risks OOM on a hostile or huge file.
+    return std.Io.Dir.cwd().readFileAlloc(io, path, alloc, std.Io.Limit.limited(64 * 1024 * 1024)) catch |err| switch (err) {
+        error.FileNotFound, error.IsDir, error.StreamTooLong => null,
         else => return err,
     };
 }

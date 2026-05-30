@@ -15,7 +15,12 @@ test "preserves leading semicolon for async arrow IIFE" {
         \\  //
         \\})()
     ;
-    try h.testFormat(src, .{}, src);
+    const expected =
+        \\;(async () => {
+        \\  //
+        \\})();
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "preserves leading semicolon for function IIFE" {
@@ -24,7 +29,12 @@ test "preserves leading semicolon for function IIFE" {
         \\  //
         \\})()
     ;
-    try h.testFormat(src, .{}, src);
+    const expected =
+        \\;(function() {
+        \\  //
+        \\})();
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "preserves leading semicolon for async function IIFE" {
@@ -33,12 +43,17 @@ test "preserves leading semicolon for async function IIFE" {
         \\  //
         \\})()
     ;
-    try h.testFormat(src, .{}, src);
+    const expected =
+        \\;(async function() {
+        \\  //
+        \\})();
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "preserves leading semicolon for array expression" {
     const src = ";[1, 2, 3].forEach(() => {})";
-    try h.testFormat(src, .{}, src);
+    try h.testFormat(src, .{}, ";[1, 2, 3].forEach(() => {});");
 }
 
 test "preserves leading semicolon for array expression (multiline call)" {
@@ -47,17 +62,22 @@ test "preserves leading semicolon for array expression (multiline call)" {
         \\  console.log(x);
         \\})
     ;
-    try h.testFormat(src, .{}, src);
+    const expected =
+        \\;[1, 2, 3].forEach((x) => {
+        \\  console.log(x);
+        \\});
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "preserves leading semicolon for template literal" {
     const src = ";`test`";
-    try h.testFormat(src, .{}, src);
+    try h.testFormat(src, .{}, ";`test`;");
 }
 
 test "preserves leading semicolon for tagged template" {
     const src = ";tag`test`";
-    try h.testFormat(src, .{}, src);
+    try h.testFormat(src, .{}, ";tag`test`;");
 }
 
 test "preserves leading semicolon with idempotency for async IIFE" {
@@ -118,13 +138,18 @@ test "leading semicolon preserved for IIFE with semi: false option" {
     try h.testFormat(src, .{ .semi = false }, src);
 }
 
-test "multiline safety preserves leading semicolon after var decl" {
+test "redundant leading semicolon dropped after terminated var decl" {
     const src =
         \\const foo = bar
-        \\.(async () => {})()
+        \\;(async () => {})()
     ;
-    // The ; should be preserved on its own line, not attached to the var decl
-    try h.testFormat(src, .{}, src);
+    // The var decl is terminated with its own `;`, so the defensive leading `;`
+    // is redundant and dropped; the IIFE keeps its wrapping parens.
+    const expected =
+        \\const foo = bar;
+        \\(async () => {})();
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "multiline safety with semi false" {
@@ -141,7 +166,12 @@ test "multiline safety with array expression" {
         \\const x = y
         \\;[1, 2, 3].forEach(() => {})
     ;
-    try h.testFormat(src, .{}, src);
+    // Preceding statement is terminated, so the redundant defensive `;` is dropped.
+    const expected =
+        \\const x = y;
+        \\[1, 2, 3].forEach(() => {});
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "multiline safety with template literal" {
@@ -149,5 +179,9 @@ test "multiline safety with template literal" {
         \\const x = y
         \\;`template`
     ;
-    try h.testFormat(src, .{}, src);
+    const expected =
+        \\const x = y;
+        \\`template`;
+    ;
+    try h.testFormat(src, .{}, expected);
 }

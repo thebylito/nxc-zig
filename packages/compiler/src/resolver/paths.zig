@@ -195,11 +195,6 @@ fn pathExists(path: []const u8, io: std.Io) !bool {
     return true;
 }
 
-fn appendSuffix(path: []const u8, suffix: []const u8, alloc: std.mem.Allocator) ![]const u8 {
-    if (suffix.len == 0) return path;
-    return try std.fmt.allocPrint(alloc, "{s}{s}", .{ path, suffix });
-}
-
 fn hasJsExtension(path: []const u8) bool {
     return std.mem.endsWith(u8, path, ".js") or std.mem.endsWith(u8, path, ".mjs");
 }

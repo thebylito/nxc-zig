@@ -147,9 +147,39 @@ pub fn sourcePosition(source: []const u8, index: usize) SourcePosition {
 }
 
 pub fn sourceRange(source: []const u8, start: usize, end: usize) SourceRange {
+    const start_clamped = @min(start, source.len);
+    const end_clamped = @min(end, source.len);
+    if (start_clamped > end_clamped) {
+        return .{
+            .start = sourcePosition(source, start),
+            .end = sourcePosition(source, end),
+        };
+    }
+
+    // Single forward scan: walk to `start`, capture it, then continue to `end`
+    // instead of rescanning the [0..start] prefix twice.
+    var line: u32 = 1;
+    var column: u32 = 1;
+    for (source[0..start_clamped]) |c| {
+        if (c == '\n') {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+    const start_pos = SourcePosition{ .index = start_clamped, .line = line, .column = column };
+    for (source[start_clamped..end_clamped]) |c| {
+        if (c == '\n') {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
     return .{
-        .start = sourcePosition(source, start),
-        .end = sourcePosition(source, end),
+        .start = start_pos,
+        .end = .{ .index = end_clamped, .line = line, .column = column },
     };
 }
 

@@ -78,6 +78,65 @@ test "lex collects pending comments before next token" {
     try std.testing.expectEqualStrings("/* @typescript-disable import-helpers/order-imports */", comments[2].raw);
 }
 
+test "lex handles long runs of consecutive line comments without stack overflow" {
+    const alloc = std.testing.allocator;
+    var src = std.ArrayListUnmanaged(u8).empty;
+    defer src.deinit(alloc);
+
+    const n: usize = 200_000;
+    for (0..n) |_| try src.appendSlice(alloc, "// comment line\n");
+    try src.appendSlice(alloc, "const x = 1;");
+
+    var l = Lexer.init(src.items);
+    const kw = l.next();
+    try std.testing.expectEqual(TokenKind.kw_const, kw.kind);
+    // line tracking must survive the comment loop: token sits on line n + 1
+    try std.testing.expectEqual(@as(u32, @intCast(n + 1)), kw.span.line);
+    try std.testing.expectEqual(TokenKind.ident, l.next().kind);
+    try std.testing.expectEqual(TokenKind.eq, l.next().kind);
+    try std.testing.expectEqual(TokenKind.number, l.next().kind);
+    try std.testing.expectEqual(TokenKind.semicolon, l.next().kind);
+    try std.testing.expectEqual(TokenKind.eof, l.next().kind);
+}
+
+test "lex handles long runs of block comments without stack overflow" {
+    const alloc = std.testing.allocator;
+    var src = std.ArrayListUnmanaged(u8).empty;
+    defer src.deinit(alloc);
+
+    const n: usize = 200_000;
+    for (0..n) |_| try src.appendSlice(alloc, "/* c */ ");
+    try src.appendSlice(alloc, "42");
+
+    var l = Lexer.init(src.items);
+    try std.testing.expectEqual(TokenKind.number, l.next().kind);
+    try std.testing.expectEqual(TokenKind.eof, l.next().kind);
+}
+
+test "lex source consisting only of comments yields eof" {
+    const alloc = std.testing.allocator;
+    var src = std.ArrayListUnmanaged(u8).empty;
+    defer src.deinit(alloc);
+
+    const n: usize = 100_000;
+    for (0..n) |_| try src.appendSlice(alloc, "// only comments\n");
+
+    var l = Lexer.init(src.items);
+    try std.testing.expectEqual(TokenKind.eof, l.next().kind);
+}
+
+test "lex template middle/tail with trailing backslash at EOF does not overflow" {
+    // Regression: a backslash as the final byte of a template middle/tail used to
+    // overshoot the source length and trigger an out-of-bounds slice panic.
+    var l = Lexer.init("`${1}\\");
+    var t = l.next();
+    var guard: usize = 0;
+    while (t.kind != .eof and guard < 16) : (guard += 1) {
+        t = l.next();
+    }
+    try std.testing.expectEqual(TokenKind.eof, t.kind);
+}
+
 test "lex skips utf8 bom and zero-width spaces" {
     var l = Lexer.init("const \xEF\xBB\xBFx\xE2\x80\x8B = \xEF\xBB\xBF1;");
     try std.testing.expectEqual(TokenKind.kw_const, l.next().kind);

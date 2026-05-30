@@ -1898,7 +1898,9 @@ pub const Parser = struct {
 
     fn parseAsyncArrowOrExpr(self: *Parser) !NodeId {
         const kw = self.eat();
-        if (self.check(.kw_function)) return self.parseFnDecl(true);
+        // In expression position `async function` is a function expression, not a
+        // declaration, so the IIFE keeps its wrapping parens and leading semicolon.
+        if (self.check(.kw_function)) return self.parseFnExpr(true);
         if (self.opts.typescript and self.check(.lt)) {
             const type_params = try self.parseTsTypeParams();
             return self.parseArrowWithTypeParams(type_params, true);
@@ -2685,6 +2687,7 @@ pub const Parser = struct {
 
     fn parseBindingPattern(self: *Parser) anyerror!NodeId {
         try self.checkDepth();
+        defer self.parse_depth -= 1;
         return switch (self.cur().kind) {
             .lbrace => self.parseObjectPat(),
             .lbracket => self.parseArrayPat(),
@@ -2775,6 +2778,7 @@ pub const Parser = struct {
 
     fn parseTsType(self: *Parser) anyerror!NodeId {
         try self.checkDepth();
+        defer self.parse_depth -= 1;
         const base = try self.parseTsUnionType();
         // type predicate: `x is T` or `this is T` (return type annotation)
         if (self.check(.kw_is)) {

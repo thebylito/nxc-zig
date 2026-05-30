@@ -100,14 +100,17 @@ fn loadCachedOutput(path: []const u8, io: std.Io, alloc: std.mem.Allocator) !Com
         error.StreamTooLong => return error.FileTooLarge,
         else => return err,
     };
+    errdefer alloc.free(code);
 
     const map_path = try std.fmt.allocPrint(alloc, "{s}.map", .{js_path});
     defer alloc.free(map_path);
     const map = std.Io.Dir.cwd().readFileAlloc(io, map_path, alloc, std.Io.Limit.limited(64 * 1024 * 1024)) catch null;
+    errdefer if (map) |m| alloc.free(m);
 
     const decl_path = try compiler.declarationPathFromJsPath(alloc, js_path);
     defer alloc.free(decl_path);
     const declarations = std.Io.Dir.cwd().readFileAlloc(io, decl_path, alloc, std.Io.Limit.limited(64 * 1024 * 1024)) catch null;
+    errdefer if (declarations) |d| alloc.free(d);
 
     return CompileResult{
         .code = code,
