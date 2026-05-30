@@ -38,10 +38,17 @@ test "preserves leading semicolon for function IIFE" {
 }
 
 test "preserves leading semicolon for async function IIFE" {
-    // KNOWN BUG: the formatter drops the wrapping parens and the leading `;` of
-    // an async function IIFE, producing broken output
-    // (`;(async function () {})()` -> `async function() {}();`). See CHANGELOG.
-    return error.SkipZigTest;
+    const src =
+        \\;(async function () {
+        \\  //
+        \\})()
+    ;
+    const expected =
+        \\;(async function() {
+        \\  //
+        \\})();
+    ;
+    try h.testFormat(src, .{}, expected);
 }
 
 test "preserves leading semicolon for array expression" {

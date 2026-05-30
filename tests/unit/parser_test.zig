@@ -781,6 +781,16 @@ test "ts-support: conditional type with abstract constructor infer is stripped" 
     );
 }
 
+// Regression: `async function` in expression position was parsed as a
+// declaration (fn_decl), so the IIFE lost its wrapping parens in codegen
+// (`(async function(){})()` -> `async function(){}()`, semantically broken).
+test "async function IIFE keeps its wrapping parens" {
+    const out = try compile(";(async function () {})()");
+    defer std.testing.allocator.free(out);
+    try std.testing.expect(std.mem.indexOf(u8, out, "(async function") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "})()") != null);
+}
+
 // Regression: parseTsType used to call checkDepth() without decrementing
 // parse_depth, so the recursion counter grew across sequential annotations
 // and tripped a spurious "recursion depth exceeded" past max_depth (2048).

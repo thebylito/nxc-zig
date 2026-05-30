@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It now iterates over leading comments. Fixed in both the compiler
   (`packages/compiler/src/syntax/lexer/lexer.zig`) and linter
   (`packages/linter/src/lexer.zig`) copies.
+- **Parser: `async function` IIFE no longer produces broken output.** In
+  expression position `async function () {}` was parsed as a declaration
+  (`fn_decl`) instead of a function expression (`fn_expr`), so an async IIFE lost
+  its wrapping parentheses (and, in the formatter, its leading ASI semicolon):
+  `;(async function () {})()` emitted `async function() {}()`, which is
+  semantically broken. Now parsed as `fn_expr` in both the compiler and linter
+  parsers, yielding `(async function() {})();`. (Found by the newly enabled
+  formatter suite.)
 - **Parser: fix recursion-depth guard leak.** `parseBindingPattern` and
   `parseTsType` incremented the depth counter via `checkDepth()` without a
   matching decrement, so the counter grew across sequential declarations and
@@ -76,12 +84,9 @@ unfixed code** before the fix and pass after:
 ### Known issues
 
 Surfaced by enabling the formatter suite (`packages/linter/tests/formatter/semi_test.zig`,
-now skipped via `error.SkipZigTest` pending triage):
+now skipped via `error.SkipZigTest` pending triage). The async function IIFE
+issue found here was fixed (see _Security_ above); the remaining items are:
 
-- **Bug — async function IIFE loses its parens and leading `;`.** Formatting
-  `;(async function () {})()` yields `async function() {}();`, which drops the
-  ASI-safety semicolon and the wrapping parentheses, producing semantically
-  broken output. The non-async `;(function () {})()` formats correctly.
 - **Leading empty statement leaves a blank line.** `;\nconst x = 1;` formats to
   `\nconst x = 1;` (leading blank line) instead of `const x = 1;`.
 - **Defensive-semicolon placement across statement boundaries changed.** The
