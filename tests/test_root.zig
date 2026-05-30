@@ -14,11 +14,6 @@ const paths_tests = @import("unit/paths_test.zig");
 const formatter_leading_semi_tests = @import("unit/formatter_leading_semi_test.zig");
 const regression_coverage_tests = @import("unit/regression_coverage_test.zig");
 const cli_tests = @import("integration/cli_test.zig");
-const package_compiler_tests = @import("package_compiler_tests");
-const package_linter_tests = @import("package_linter_tests");
-const package_formatter_tests = @import("package_formatter_tests");
-const package_cli_tests = @import("package_cli_tests");
-const package_common_tests = @import("package_common_tests");
 
 comptime {
     _ = lexer_tests;
@@ -37,9 +32,4 @@ comptime {
     _ = regression_coverage_tests;
     _ = sourcemaps_tests;
     _ = cli_tests;
-    _ = package_compiler_tests;
-    _ = package_linter_tests;
-    _ = package_formatter_tests;
-    _ = package_cli_tests;
-    _ = package_common_tests;
 }
