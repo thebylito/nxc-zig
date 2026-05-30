@@ -12,6 +12,7 @@ const parser_tests = @import("unit/parser_test.zig");
 const sourcemaps_tests = @import("unit/sourcemaps_test.zig");
 const paths_tests = @import("unit/paths_test.zig");
 const formatter_leading_semi_tests = @import("unit/formatter_leading_semi_test.zig");
+const regression_coverage_tests = @import("unit/regression_coverage_test.zig");
 const cli_tests = @import("integration/cli_test.zig");
 const package_compiler_tests = @import("package_compiler_tests");
 const package_linter_tests = @import("package_linter_tests");
@@ -33,6 +34,7 @@ comptime {
     _ = parser_tests;
     _ = paths_tests;
     _ = formatter_leading_semi_tests;
+    _ = regression_coverage_tests;
     _ = sourcemaps_tests;
     _ = cli_tests;
     _ = package_compiler_tests;

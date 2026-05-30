@@ -780,3 +780,51 @@ test "ts-support: conditional type with abstract constructor infer is stripped" 
         \\export const x = 1;
     );
 }
+
+// Regression: parseTsType used to call checkDepth() without decrementing
+// parse_depth, so the recursion counter grew across sequential annotations
+// and tripped a spurious "recursion depth exceeded" past max_depth (2048).
+test "parser does not leak depth counter across many type annotations" {
+    var backing_alloc = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer backing_alloc.deinit();
+    const alloc = backing_alloc.allocator();
+
+    var src = std.ArrayListUnmanaged(u8).empty;
+    const n: usize = 3000; // safely beyond the default max_depth of 2048
+    for (0..n) |i| try src.print(alloc, "const a{d}: number = {d};\n", .{ i, i });
+
+    var arena = ast.Arena.init(alloc);
+    var diags = diagnostics.DiagnosticList{};
+
+    var p = Parser.init(src.items, "depth_types.ts", &arena, alloc, &diags, .{
+        .typescript = true,
+        .jsx = false,
+        .source_type = .module,
+    });
+
+    _ = try p.parseProgram();
+    try std.testing.expect(!diags.hasErrors());
+}
+
+// Regression: same missing-decrement bug in parseBindingPattern.
+test "parser does not leak depth counter across many binding patterns" {
+    var backing_alloc = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer backing_alloc.deinit();
+    const alloc = backing_alloc.allocator();
+
+    var src = std.ArrayListUnmanaged(u8).empty;
+    const n: usize = 3000;
+    for (0..n) |i| try src.print(alloc, "const [a{d}] = arr;\n", .{i});
+
+    var arena = ast.Arena.init(alloc);
+    var diags = diagnostics.DiagnosticList{};
+
+    var p = Parser.init(src.items, "depth_patterns.ts", &arena, alloc, &diags, .{
+        .typescript = true,
+        .jsx = false,
+        .source_type = .module,
+    });
+
+    _ = try p.parseProgram();
+    try std.testing.expect(!diags.hasErrors());
+}
