@@ -787,8 +787,22 @@ test "ts-support: conditional type with abstract constructor infer is stripped" 
 test "async function IIFE keeps its wrapping parens" {
     const out = try compile(";(async function () {})()");
     defer std.testing.allocator.free(out);
-    try std.testing.expect(std.mem.indexOf(u8, out, "(async function") != null);
-    try std.testing.expect(std.mem.indexOf(u8, out, "})()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "(async function() {})();") != null);
+}
+
+// Companion: the async *arrow* IIFE has always parsed as an expression; assert
+// it stays wrapped so both IIFE flavours are covered side by side.
+test "async arrow IIFE keeps its wrapping parens" {
+    const out = try compile(";(async () => {})()");
+    defer std.testing.allocator.free(out);
+    try std.testing.expect(std.mem.indexOf(u8, out, "(async () => {})();") != null);
+}
+
+// Both IIFE flavours in one comma sequence must each stay parenthesised.
+test "async arrow and function IIFE in a comma sequence both stay wrapped" {
+    const out = try compile(";(async () => {})(), (async function () {})()");
+    defer std.testing.allocator.free(out);
+    try std.testing.expect(std.mem.indexOf(u8, out, "(async () => {})(), (async function() {})();") != null);
 }
 
 // Regression: parseTsType used to call checkDepth() without decrementing

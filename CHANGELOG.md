@@ -81,6 +81,12 @@ unfixed code** before the fix and pass after:
   - 3000 sequential binding patterns parse without a false depth error.
   - _Fail-first evidence:_ both raise `parser recursion depth exceeded` on the
     pre-fix parser.
+  - async IIFE codegen (both flavours stay parenthesised): the `async function`
+    IIFE emits `(async function() {})();`, the `async () =>` arrow IIFE emits
+    `(async () => {})();`, and a comma sequence of the two emits
+    `(async () => {})(), (async function() {})();`. The `async function` case is a
+    regression guard (it used to lose its parens, see *Security* above); the arrow
+    and sequence cases lock in that both forms are supported together.
 - `tests/unit/regression_coverage_test.zig` — common + linter:
   - `common.sourceRange` matches the reference two-call `sourcePosition` across
     12 boundary cases (empty source, zero-length range, multiline, out-of-bounds
@@ -91,6 +97,11 @@ unfixed code** before the fix and pass after:
   - linter parser parses 3000 declarations without a false depth error
     (_fail-first:_ raises `parser recursion depth exceeded` on the pre-fix
     parser).
+- `packages/linter/tests/formatter/semi_test.zig` — formatter:
+  - a comma sequence holding both an async arrow IIFE and an async `function`
+    IIFE keeps the leading ASI semicolon and both wrappers:
+    `;(async () => {})(), (async function() {})();` (alongside the existing
+    single-IIFE arrow/function/async-function cases).
 
 ### Build
 
