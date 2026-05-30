@@ -185,3 +185,8 @@ test "multiline safety with template literal" {
     ;
     try h.testFormat(src, .{}, expected);
 }
+
+test "preserves leading semicolon for async arrow + function IIFE in a sequence" {
+    const src = ";(async () => {})(), (async function () {})()";
+    try h.testFormat(src, .{}, ";(async () => {})(), (async function() {})();");
+}
